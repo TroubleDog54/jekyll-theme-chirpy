@@ -1,37 +1,40 @@
----
-layout: compress
-permalink: '/sw.js'
-# PWA service worker
----
+/* PWA service worker */
 
-self.importScripts('{{ "/assets/js/data/swcache.js" | relative_url }}');
-
-const cacheName = 'chirpy-{{ "now" | date: "%s" }}';
-
-function verifyDomain(url) {
-  for (const domain of allowedDomains) {
-    const regex = RegExp(`^http(s)?:\/\/${domain}\/`);
+function verifyHost(url) {
+  for (const host of swconf.allowHosts) {
+    const regex = RegExp(`^http(s)?://${host}/`);
     if (regex.test(url)) {
       return true;
     }
   }
-
   return false;
 }
 
-function isExcluded(url) {
-  for (const item of denyUrls) {
-    if (url === item) {
-      return true;
+function verifyPath(url) {
+  const requestPath = new URL(url).pathname;
+
+  for (const path of swconf.denyPaths) {
+    if (requestPath.startsWith(path)) {
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 self.addEventListener('install', (event) => {
+  const swconfPath = '/assets/js/data/swconf.js';
+  const params = new URL(location).searchParams;
+
+  const swconfUrl = params.has('baseurl')
+    ? `${params.get('baseurl')}${swconfPath}`
+    : swconfPath;
+
+  importScripts(swconfUrl);
+  swconf.allowHosts.push(location.host);
+
   event.waitUntil(
-    caches.open(cacheName).then((cache) => {
-      return cache.addAll(resource);
+    caches.open(swconf.cacheName).then((cache) => {
+      return cache.addAll(swconf.resources);
     })
   );
 });
@@ -41,7 +44,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
-          if (key !== cacheName) {
+          if (key !== swconf.cacheName) {
             return caches.delete(key);
           }
         })
@@ -57,6 +60,8 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       if (response) {
@@ -64,24 +69,20 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(event.request).then((response) => {
-        const url = event.request.url;
-
         if (
           event.request.method !== 'GET' ||
-          !verifyDomain(url) ||
-          isExcluded(url)
+          !verifyHost(url) ||
+          !verifyPath(url)
         ) {
           return response;
         }
 
-        /* see: <https://developers.google.com/web/fundamentals/primers/service-workers#cache_and_return_requests> */
+        // See : <https://developers.google.com/web/fundamentals/primers/service-workers#cache_and_return_requests>
         let responseToCache = response.clone();
 
-        caches.open(cacheName).then((cache) => {
-          /* console.log('[sw] Caching new resource: ' + event.request.url); */
+        caches.open(swconf.cacheName).then((cache) => {
           cache.put(event.request, responseToCache);
         });
-
         return response;
       });
     })

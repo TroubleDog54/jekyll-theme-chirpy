@@ -18,4 +18,5 @@ package-lock.json
 .idea
 
 # Misc
+sw.min.js
 assets/js/dist
