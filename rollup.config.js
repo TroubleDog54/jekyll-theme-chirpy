@@ -11,7 +11,7 @@ function build(filename, opts) {
   let src = SRC_DEFAULT;
   let dist = DIST_DEFAULT;
 
-  if (opts !== undefined) {
+  if (typeof opts !== 'undefined') {
     src = opts.src || src;
     dist = opts.dist || dist;
   }

@@ -28,7 +28,7 @@ if ('serviceWorker' in navigator) {
       });
     });
 
-    $btnRefresh.click(() => {
+    $btnRefresh.on('click', () => {
       if (registration.waiting) {
         registration.waiting.postMessage('SKIP_WAITING');
       }
